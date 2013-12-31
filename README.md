@@ -83,6 +83,7 @@ Example
     #!/bin/env python
     from getpass import getpass
     from radius import RADIUS
+    from random import randint
 
     host = raw_input("Host? (default = '127.0.0.1')")
     port = raw_input('Port? (default = 1812) ')
