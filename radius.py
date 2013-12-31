@@ -1,5 +1,9 @@
 #!/usr/bin/env python
 '''
+DEC/31/2013
+Modified the code so that it works with RFC2865 since RFC2138 is now deprecated.
+Modified by Silverfoxy <babak.silverfox@gmail.com>
+---------------------------------------------------------------------------
 Extremly basic RADIUS authentication. Bare minimum required to authenticate
 a user, yet remain RFC2138 compliant (I hope). 
 
@@ -45,7 +49,7 @@ except ImportError:
     from md5 import new as md5
 import socket
 
-__version__ = '1.0.3'
+__version__ = '2.0.0'
 
 # Constants
 ACCESS_REQUEST	= 1
@@ -59,18 +63,18 @@ class Error(Exception): pass
 class NoResponse(Error): pass
 class SocketError(NoResponse): pass
 
-def authenticate(username,password,secret,host='radius',port=1645):
+def authenticate(username,password,secret,host='127.0.0.1',port=1812,NASip='127.0.0.1',NASport=randint(1,2147483647)):
     '''Return 1 for a successful authentication. Other values indicate
        failure (should only ever be 0 anyway).
 
        Can raise either NoResponse or SocketError'''
 
     r = RADIUS(secret,host,port)
-    return r.authenticate(username,password)
+    return r.authenticate(username,password,NASip,NASport)
 
 class RADIUS:
 
-    def __init__(self,secret,host='radius',port=1645):
+    def __init__(self,secret,host='127.0.0.1',port=1812):
         self._secret = secret
         self._host   = host
         self._port   = port
@@ -102,7 +106,7 @@ class RADIUS:
         for i in range(1,17):
             v[i] = randint(1,255)
 
-        return apply(pack,v)
+        return pack(*v)
 
     def radcrypt(self,authenticator,text):
         '''Encrypt a password with the secret'''
@@ -126,7 +130,7 @@ class RADIUS:
             last, text = result[-16:], text[16:]
         return result
 
-    def authenticate(self,uname,passwd):
+    def authenticate(self,uname,passwd,NASip,NASport):
         '''Attempt t authenticate with the given username and password.
            Returns 0 on failure
            Returns 1 on success
@@ -141,13 +145,15 @@ class RADIUS:
 
             encpass = self.radcrypt(authenticator,passwd)
 
-            msg = pack('!B B H 16s B B %ds B B %ds' \
+            msg = pack('!B B H 16s B B %ds B B %ds B B 4B B B I' \
                     % (len(uname),len(encpass)),\
                 1,id,
-                len(uname)+len(encpass) + 24, # Length of entire message
+                len(uname)+len(encpass) + 36, # Length of entire message
                 authenticator,
                 1,len(uname)+2,uname,
-                2,len(encpass)+2,encpass)
+                2,len(encpass)+2,encpass,
+                4,6, int(NASip.split('.')[0]), int(NASip.split('.')[1]), int(NASip.split('.')[2]), int(NASip.split('.')[3]),
+                5,6,NASport)
 
             for i in range(0,self.retries):
                 self._socket.send(msg)
@@ -189,14 +195,20 @@ if __name__ == '__main__':
 
     from getpass import getpass
 
-    host = raw_input("Host? (default = 'radius')")
-    port = raw_input('Port? (default = 1645) ')
-
-    if not host: host = 'radius'
+    host = raw_input("Host? (default = '127.0.0.1')")
+    port = raw_input('Port? (default = 1812) ')
+    NASip = raw_input("NAS IP? (default = '127.0.0.1')")
+    NASport = raw_input("NAS Port? (default = random)")
+    if not host: host = '127.0.0.1'
 
     if port: port = int(port)
-    else: port = 1645
+    else: port = 1812
     
+    if not NASip: NASip = '127.0.0.1'
+
+    if NASport: NASport = int(NASport)
+    else:  NASport = randint(1,2147483647)
+
     secret = ''
     while not secret: secret = getpass('RADIUS Secret? ')
 
@@ -207,7 +219,7 @@ if __name__ == '__main__':
     while not uname:  uname = raw_input("Username? ")
     while not passwd: passwd = getpass("Password? ")
 
-    if r.authenticate(uname,passwd):
+    if r.authenticate(uname,passwd,NASip,NASport):
         print "Authentication Succeeded"
     else:
         print "Authentication Failed"
