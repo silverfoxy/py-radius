@@ -1,19 +1,34 @@
 Modified the code so that it works with RFC2865 since RFC2138 is now deprecated.
 ---------------------------------------------------------
-RADIUS authentication module for Python 2.6+
+RADIUS authentication module for Python 1.5.2+
 
 (c) 1999 Stuart Bishop <zen@shangri-la.dropbear.id.au>
 
 This module provides basic RADIUS client capabilities, allowing
-your Python code to authenticate against any RFC2865 compliant RADIUS
+your Python code to authenticate against any RFC2138 compliant RADIUS
 server.
 
 
 Installation
 -----
 
+The following command will install radius.py into your Python
+modules library:
+
+    python setup.py install
+
+This command will generally need to be run with an administrative
+level account (root under Unix, Administrator under NT etc.).
+
 RPM Package
 -----
+
+You can build an RPM package for py-radius using the following procedure.
+
+    $ mkdir -p $HOME/rpmbuild/SOURCES
+    $ python setup.py sdist
+    $ cp dist/*.tar.gz $HOME/rpmbuild/SOURCES
+    $ rpmbuild -ba py-radius.spec
 
 Usage
 -----
@@ -26,13 +41,13 @@ RADIUS client to test out RADIUS servers:
 
 The module defines the following items:
 
-    authenticate(username, password, secret, host='127.0.0.1', port=1812, NASip='127.0.0.1', NASport=randint(1, 214748364))
+    authenticate(username, password, secret, host='radius', port=1645)
 
 A simple, thread safe function to authenticate off a RADIUS
 server with the minimum possible fuss. Returns 1 on success,
 0 on failure. May throw a NoResponse or SocketError exception.
 
-    RADIUS(secret, host='radius', port=1645)
+    RADIUS(secret, host='127.0.0.1', port=1812)
 
 Return a new instance of the RADIUS class. RADIUS objects
 provide a more efficient interface if your code makes many
@@ -83,31 +98,26 @@ Example
     from getpass import getpass
     from radius import RADIUS
 
-    host = raw_input("Host? (default = '127.0.0.1')")
-    port = raw_input('Port? (default = 1812) ')
-    NASip = raw_input("NAS IP? (default = '127.0.0.1')")
-    NASport = raw_input("NAS Port? (default = random)")
-    if not host: host = '127.0.0.1'
+    host = raw_input("Host? (default = 'radius')")
+    port = raw_input('Port? (default = 1645) ')
+
+    if not host: host = 'radius'
 
     if port: port = int(port)
-    else: port = 1812
-    
-    if not NASip: NASip = '127.0.0.1'
-
-    if NASport: NASport = int(NASport)
-    else:  NASport = randint(1,2147483647)
+    else: port = 1645
 
     secret = ''
-    while not secret: secret = getpass('RADIUS Secret? ')
-
-    r = RADIUS(secret,host,port)
-
     uname,passwd = None,None
-
-    while not uname:  uname = raw_input("Username? ")
+    while not secret: secret = getpass('RADIUS Secret? ')
+    while not uname:  uname  = raw_input("Username? ")
     while not passwd: passwd = getpass("Password? ")
 
-    if r.authenticate(uname,passwd,NASip,NASport):
+    r = RADIUS(secret,host,port)
+    r.timeout = 10
+
+
+    if r.authenticate(uname,passwd):
         print "Authentication Succeeded"
     else:
-        print "Authentication Failed
+        print "Authentication Failed"
+
