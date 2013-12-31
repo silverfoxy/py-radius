@@ -1,3 +1,5 @@
+Modified the code so that it works with RFC2865 since RFC2138 is now deprecated.
+---------------------------------------------------------
 RADIUS authentication module for Python 1.5.2+
 
 (c) 1999 Stuart Bishop <zen@shangri-la.dropbear.id.au>
